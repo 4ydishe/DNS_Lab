@@ -1,0 +1,155 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - bind9
+          - bind9utils
+          - bind9-doc
+          - dnsutils
+        update_cache: yes
+        state: present
+
+    - name: Install chrony
+      apt:
+        name: chrony
+        state: present
+        update_cache: yes
+
+    - name: Ensure chronyd is running
+      service:
+        name: chrony
+        state: started
+        enabled: yes
+
+    - name: Copy zone transfer key
+      copy:
+        src: named.zonetransfer.key
+        dest: /etc/bind/named.zonetransfer.key
+        owner: root
+        group: bind
+        mode: '0644'
+
+- hosts: ns01
+  become: yes
+  tasks:
+    - name: Deploy master named.conf
+      copy:
+        src: master-named.conf
+        dest: /etc/bind/named.conf
+        owner: root
+        group: bind
+        mode: '0644'
+    - name: Generate SSH key for vagrant user
+      become_user: vagrant
+      openssh_keypair:
+        path: /home/vagrant/.ssh/id_rsa
+        type: rsa
+        size: 4096
+        mode: '0600'
+      register: ssh_keygen_result
+
+    - name: Ensure .ssh directory exists on remote machines
+      delegate_to: "{{ item }}"
+      file:
+        path: /home/vagrant/.ssh
+        state: directory
+        owner: vagrant
+        group: vagrant
+        mode: '0700'
+      with_items:
+        - ns02
+        - client
+        - client2
+
+    - name: Copy SSH public key to other nodes
+      delegate_to: "{{ item }}"
+      authorized_key:
+        user: vagrant
+        key: "{{ lookup('file', '/home/vagrant/.ssh/id_rsa.pub') }}"
+      with_items:
+        - ns02
+        - client
+        - client2
+
+    - name: Copy zone files
+      copy:
+        src: "{{ item }}"
+        dest: /etc/bind/
+        owner: root
+        group: bind
+        mode: '0660'
+      with_items:
+        - named.ddns.lab
+        - named.dns.lab
+        - named.dns.lab.client
+        - named.dns.lab.rev
+        - named.newdns.lab
+
+    - name: Apply resolv.conf template
+      template:
+        src: servers-resolv.conf.j2
+        dest: /etc/resolv.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Restart bind9
+      service:
+        name: bind9
+        state: restarted
+        enabled: yes
+
+- hosts: ns02
+  become: yes
+  tasks:
+    - name: Deploy slave named.conf
+      copy:
+        src: slave-named.conf
+        dest: /etc/bind/named.conf
+        owner: root
+        group: bind
+        mode: '0644'
+
+    - name: Apply resolv.conf template
+      template:
+        src: servers-resolv.conf.j2
+        dest: /etc/resolv.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Restart bind9
+      service:
+        name: bind9
+        state: restarted
+        enabled: yes
+
+- hosts: client,client2
+  become: yes
+  tasks:
+    - name: Set resolv.conf
+      copy:
+        src: client-resolv.conf
+        dest: /etc/resolv.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Set MOTD
+      copy:
+        src: client-motd
+        dest: /etc/motd
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Copy rndc.conf
+      copy:
+        src: rndc.conf
+        dest: /home/vagrant/rndc.conf
+        owner: vagrant
+        group: vagrant
+        mode: '0644'

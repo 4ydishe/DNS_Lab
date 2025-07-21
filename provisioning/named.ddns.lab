@@ -1,0 +1,12 @@
+$TTL 3600
+@   IN  SOA ns01.ddns.lab. root.ddns.lab. (
+        2025072101 ; serial
+        3600       ; refresh
+        600        ; retry
+        86400      ; expire
+        600        ; minimum
+)
+    IN  NS  ns01.ddns.lab.
+    IN  NS  ns02.ddns.lab.
+ns01    IN  A   192.168.50.10
+ns02    IN  A   192.168.50.11

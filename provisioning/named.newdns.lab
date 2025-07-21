@@ -1,0 +1,14 @@
+$TTL 3600
+@   IN  SOA ns01.newdns.lab. root.newdns.lab. (
+        2025072101 ; serial
+        3600       ; refresh
+        600        ; retry
+        86400      ; expire
+        600        ; minimum
+)
+    IN  NS  ns01.dns.lab.
+    IN  NS  ns02.dns.lab.
+ns01    IN  A   192.168.50.10
+ns02    IN  A   192.168.50.11
+www     IN  A   192.168.50.15
+        IN  A   192.168.50.16
